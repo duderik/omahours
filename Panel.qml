@@ -48,6 +48,25 @@ Panel {
   FontMetrics { id: titleMetrics; font.family: root.fontName; font.pixelSize: Style.font.title }
   readonly property int buttonSize: Math.round(Math.max(Style.space(22), Style.font.iconLarge + Style.spacing.sm * 2)) | 1
   readonly property int rowHeight: Math.max(buttonSize, Math.ceil(titleMetrics.height)) + Style.spacing.controlPaddingY * 2
+  // Rows align to the top, so a wrapped name keeps its first line level with
+  // the time and the buttons; the shorter of text and button is centered on the other.
+  readonly property real textOffset: Math.max(0, (buttonSize - Math.ceil(titleMetrics.height)) / 2)
+  readonly property real buttonOffset: Math.max(0, (Math.ceil(titleMetrics.height) - buttonSize) / 2)
+
+  // Panel width follows the longest name, at most the Omarchy panel width
+  // (380); longer names wrap. Each row needs: inset, name, time, three buttons.
+  FontMetrics { id: timeMetrics; font.family: root.fontName; font.pixelSize: Style.font.title; font.features: { "tnum": 1 } }
+  readonly property int buttonsWidth: buttonSize * 3 + Style.space(2) * 2
+  readonly property int panelChrome: panel.padding * 2 + Border.left(panel.borderSpec) + Border.right(panel.borderSpec)
+  readonly property int maxPanelWidth: Style.space(380)
+  // Narrowest panel: the editor row keeps a usable name field.
+  readonly property int minPanelWidth: Style.space(120) + Style.space(92) + buttonsWidth
+    + Style.spacing.controlGap * 2 + panelChrome
+  readonly property int panelWidth: unreadable ? maxPanelWidth : Model.fitWidth(store.projects.map(function(p) {
+    return Style.space(12) + Math.ceil(titleMetrics.advanceWidth(p.name))
+      + Math.ceil(timeMetrics.advanceWidth(Model.format(Model.timeOf(p, now))))
+      + Style.spacing.controlGap * 2 + buttonsWidth + panelChrome
+  }), minPanelWidth, maxPanelWidth)
 
   // ------------------------------------------------------------ State
 
@@ -75,6 +94,30 @@ Panel {
   property double lastTick: 0
   property double lastUnlocked: 0
   property double lockQueryAt: 0
+  // Project paused by the lock screen or a suspend; it resumes on unlock.
+  // A project that was already paused before locking is never started.
+  property string lockPausedName: ""
+
+  // Settings, stored in this widget's entry in shell.json.
+  readonly property bool pauseOnLock: setting("pauseOnLock", true) !== false
+  readonly property bool coloredBar: setting("coloredBar", true) !== false
+  property int settingsChoice: 0     // row under the cursor in the settings view
+
+  // Applied locally first so the panel redraws at once; the shell.json write
+  // comes back through the bar with the same value (as the Omarchy clock does).
+  function persistSettings(values) {
+    var entry = { id: moduleName }
+    for (var k in settings) if (k !== "id") entry[k] = settings[k]
+    for (var v in values) entry[v] = values[v]
+    settings = entry
+    if (bar && bar.shell && typeof bar.shell.updateEntryInline === "function")
+      bar.shell.updateEntryInline(moduleName, entry)
+  }
+
+  function toggleSetting(i) {
+    if (i === 0) persistSettings({ pauseOnLock: !pauseOnLock })
+    else persistSettings({ coloredBar: !coloredBar })
+  }
 
   readonly property int projectCount: store.projects.length
   readonly property int runningIndex: Model.runningIndex(store.projects)
@@ -85,8 +128,10 @@ Panel {
 
   readonly property string barText: unreadable ? "!"
     : (lastProject ? Model.format(Model.timeOf(lastProject, now)) : "0m")
+  // Neutral bar: the color of the other bar icons, dimmed while paused.
   readonly property color barColor: unreadable ? errorRed
-    : (!lastProject ? (bar ? bar.barForeground : fg) : (lastProject.since > 0 ? green : darkRed))
+    : (!lastProject || !coloredBar ? (bar ? bar.barForeground : fg) : (lastProject.since > 0 ? green : darkRed))
+  readonly property bool barDimmed: !unreadable && (!lastProject || (!coloredBar && lastProject.since <= 0))
 
   // ------------------------------------------------------------ Panel state
 
@@ -193,12 +238,32 @@ Panel {
     return w.length === 0 || w[0] === root
   }
 
+  // Remembers the project only if one was running; a second pause while
+  // locked (nothing running) keeps the remembered name.
+  function pauseForLock(until) {
+    var name = ""
+    mutate(function(s) {
+      name = Model.pauseRunning(s, until)
+      return name !== ""
+    })
+    if (name !== "") lockPausedName = name
+  }
+
+  function resumeAfterLock(t) {
+    if (lockPausedName === "") return
+    var name = lockPausedName
+    lockPausedName = ""
+    mutate(function(s) { return Model.resume(s, name, t) })
+    if (runningIndex >= 0) beat(t)
+  }
+
   // ------------------------------------------------------------ Actions
 
   function toggleProject(i) {
     if (i < 0 || i >= projectCount) return
     var name = store.projects[i].name
     var t = Date.now()
+    lockPausedName = ""
     mutate(function(s) { return Model.toggle(s, name, t) })
     if (runningIndex >= 0 && isFirstInstance()) beat(t)
   }
@@ -214,6 +279,12 @@ Panel {
     selected = i
     modeIndex = i
     mode = "edit"
+  }
+
+  function startSettings() {
+    resetMode()
+    settingsChoice = 0
+    mode = "settings"
   }
 
   function startNew() {
@@ -386,8 +457,9 @@ Panel {
 
   // Watch: suspend, heartbeat, lock screen.
   Timer {
-    interval: 10000
-    running: root.isLoaded && root.runningIndex >= 0
+    // Faster while waiting for the unlock, so a resumed project loses little time.
+    interval: root.lockPausedName !== "" ? 3000 : 10000
+    running: root.isLoaded && (root.runningIndex >= 0 || root.lockPausedName !== "")
     repeat: true
     onTriggered: {
       var t = Date.now()
@@ -395,13 +467,13 @@ Panel {
       if (root.lastTick > 0 && t - root.lastTick > 45000) {
         var until = root.lastTick
         root.lastTick = t
-        if (isFirst) root.mutate(function(s) { return Model.stopAll(s, until) })
+        if (isFirst && root.pauseOnLock) root.pauseForLock(until)
         return
       }
       root.lastTick = t
       if (!isFirst) return
-      if (t - root.heartbeat >= 60000) root.beat(t)
-      if (!lockQuery.running) {
+      if (root.runningIndex >= 0 && t - root.heartbeat >= 60000) root.beat(t)
+      if ((root.pauseOnLock || root.lockPausedName !== "") && !lockQuery.running) {
         root.lockQueryAt = t
         lockQuery.running = true
       }
@@ -417,9 +489,9 @@ Panel {
         var answer = String(text || "").trim()
         if (answer === "false") {
           root.lastUnlocked = root.lockQueryAt
-        } else if (answer === "true") {
-          var until = root.lastUnlocked > 0 ? root.lastUnlocked : root.lockQueryAt
-          root.mutate(function(s) { return Model.stopAll(s, until) })
+          root.resumeAfterLock(root.lockQueryAt)
+        } else if (answer === "true" && root.pauseOnLock) {
+          root.pauseForLock(root.lastUnlocked > 0 ? root.lastUnlocked : root.lockQueryAt)
         }
       }
     }
@@ -435,7 +507,7 @@ Panel {
     }
 
     function status(): string {
-      return JSON.stringify({ last: root.store.last, display: root.barText, heartbeat: root.heartbeat, unreadable: root.unreadable, file: root.activePath, state: root.store })
+      return JSON.stringify({ last: root.store.last, display: root.barText, heartbeat: root.heartbeat, unreadable: root.unreadable, file: root.activePath, settings: root.settings, state: root.store })
     }
   }
 
@@ -447,7 +519,7 @@ Panel {
     bar: root.bar
     text: root.barText
     foreground: root.barColor
-    dimmed: !root.lastProject && !root.unreadable
+    dimmed: root.barDimmed
     useActiveColor: false
     tooltipText: root.unreadable ? strings.t("fileUnreadable").arg(root.activePath)
       : (root.lastProject ? root.lastProject.name : "")
@@ -466,7 +538,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(380))
+    contentWidth: panel.fittedContentWidth(root.panelWidth)
     contentHeight: panel.fittedContentHeight(listColumn.implicitHeight, Style.space(620))
 
     PanelKeyCatcher {
@@ -480,6 +552,10 @@ Panel {
           if (dx !== 0 || dy !== 0) root.deleteChoice = (dx > 0 || dy > 0) ? 1 : 0
           return
         }
+        if (root.mode === "settings") {
+          if (dy !== 0) root.settingsChoice = dy > 0 ? 1 : 0
+          return
+        }
         if (dy !== 0) {
           root.selected = Math.max(0, Math.min(root.projectCount, root.selected + dy))
           root.scrollToSelection()
@@ -490,6 +566,10 @@ Panel {
         if (root.mode === "delete") {
           if (root.deleteChoice === 1) root.deleteProject(root.modeIndex)
           else root.cancelMode()
+          return
+        }
+        if (root.mode === "settings") {
+          root.toggleSetting(root.settingsChoice)
           return
         }
         if (root.selected < root.projectCount) root.toggleProject(root.selected)
@@ -507,6 +587,7 @@ Panel {
         if (t === "e") root.startEdit(root.selected)
         else if (t === "d") root.startDelete(root.selected)
         else if (t === "n") root.startNew()
+        else if (t === "s") root.startSettings()
       }
 
       Flickable {
@@ -542,14 +623,49 @@ Panel {
             id: rows
             // Only the count: a start or pause changes the state while the
             // rows (and an open input field) stay in place.
-            model: root.unreadable ? 0 : root.projectCount
+            model: root.unreadable || root.mode === "settings" ? 0 : root.projectCount
             delegate: ProjectRow {}
           }
 
-          Button {
-            id: newButton
+          // Settings view: replaces the list until the gear is clicked again.
+          Column {
+            visible: root.mode === "settings"
+            width: parent.width
+            spacing: Style.space(4)
+
+            Repeater {
+              model: [
+                { label: "settings.pauseOnLock", description: root.pauseOnLock ? "settings.pauseOnLock.on" : "settings.pauseOnLock.off" },
+                { label: "settings.coloredBar", description: root.coloredBar ? "settings.coloredBar.on" : "settings.coloredBar.off" }
+              ]
+              delegate: Toggle {
+                required property var modelData
+                required property int index
+                width: parent.width
+                label: strings.t(modelData.label)
+                description: strings.t(modelData.description)
+                checked: index === 0 ? root.pauseOnLock : root.coloredBar
+                foreground: root.fg
+                fontFamily: root.fontName
+                hasCursor: root.settingsChoice === index
+                onHovered: function(on) { if (on) root.settingsChoice = index }
+                onClicked: root.toggleSetting(index)
+              }
+            }
+          }
+
+          // Bottom row: "+ New" on the left, the settings gear on the right.
+          Item {
             visible: root.mode !== "new" && !root.unreadable
             width: parent.width
+            height: newButton.implicitHeight
+
+          Button {
+            id: newButton
+            visible: root.mode !== "settings"
+            anchors.left: parent.left
+            anchors.right: gearButton.left
+            anchors.rightMargin: Style.spacing.controlGap
             leftAlign: true
             iconText: "󰐕"
             text: strings.t("new")
@@ -560,6 +676,18 @@ Panel {
             hasCursor: root.mode === "" && root.selected === root.projectCount
             onHovered: function(on) { if (on && root.mode === "") root.selected = root.projectCount }
             onClicked: root.startNew()
+          }
+
+          ActionIcon {
+            id: gearButton
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(4)
+            anchors.verticalCenter: parent.verticalCenter
+            iconText: "󰒓"
+            tooltipText: root.mode === "settings" ? strings.t("settings.back") : strings.t("settings")
+            foreground: root.mode === "settings" ? root.fg : root.dimColor
+            onClicked: root.mode === "settings" ? root.cancelMode() : root.startSettings()
+          }
           }
 
           Loader {
@@ -636,7 +764,7 @@ Panel {
       id: surface
       visible: !row.isEditing
       width: parent.width
-      height: root.rowHeight
+      height: Math.max(root.rowHeight, rowContent.implicitHeight + Style.spacing.controlPaddingY * 2)
       hasCursor: root.mode === "" && root.selected === row.index
       foreground: root.fg
 
@@ -652,21 +780,26 @@ Panel {
         id: rowContent
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
+        anchors.topMargin: Style.spacing.controlPaddingY
         anchors.leftMargin: Style.space(8)
         anchors.rightMargin: Style.space(4)
         spacing: Style.spacing.controlGap
 
-        // Name on the left, using the free space; long names end with "…".
+        // Name on the left, using the free space; long names wrap, beyond
+        // three lines they end with "…".
         Text {
           textFormat: Text.PlainText
           text: row.p.name
           color: row.rowColor
           font.family: root.fontName
           font.pixelSize: Style.font.title
+          wrapMode: Text.Wrap
+          maximumLineCount: 3
           elide: Text.ElideRight
           Layout.fillWidth: true
-          Layout.alignment: Qt.AlignVCenter
+          Layout.alignment: Qt.AlignTop
+          topPadding: root.textOffset
         }
 
         // Times of all rows form a right-aligned column just before play/pause
@@ -679,13 +812,15 @@ Panel {
           font.pixelSize: Style.font.title
           font.features: { "tnum": 1 }
           horizontalAlignment: Text.AlignRight
-          Layout.alignment: Qt.AlignVCenter
+          Layout.alignment: Qt.AlignTop
+          topPadding: root.textOffset
         }
 
         RowLayout {
           id: rowButtons
           spacing: Style.space(2)
-          Layout.alignment: Qt.AlignVCenter
+          Layout.alignment: Qt.AlignTop
+          Layout.topMargin: root.buttonOffset
 
           ActionIcon {
             iconText: row.isRunning ? "󰏤" : "󰐊"
@@ -718,7 +853,9 @@ Panel {
 
     Row {
       visible: row.isDeleting
-      x: Style.space(8)
+      // Anchors follow LayoutMirroring in right-to-left languages; a plain x would not.
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(8)
       spacing: Style.spacing.controlGap
       bottomPadding: Style.space(4)
 

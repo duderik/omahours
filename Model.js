@@ -130,6 +130,27 @@ function stopAll(store, until) {
   return changed
 }
 
+// Pause for the lock screen or a suspend: returns the name of the project
+// that was running, or "" when none was, so only that one resumes later.
+function pauseRunning(store, until) {
+  var i = runningIndex(store.projects)
+  if (i < 0) return ""
+  var name = store.projects[i].name
+  stop(store.projects[i], until)
+  return name
+}
+
+// After unlocking: start `name` again, but only if it still exists, is
+// paused and no other project runs meanwhile.
+function resume(store, name, now) {
+  if (!name || runningIndex(store.projects) >= 0) return false
+  var i = findProject(store.projects, name)
+  if (i < 0) return false
+  store.projects[i].since = now
+  store.last = store.projects[i].name
+  return true
+}
+
 // Start or pause. Starting a project pauses any other running one.
 function toggle(store, name, now) {
   var i = findProject(store.projects, name)
@@ -190,4 +211,12 @@ function parseInput(text) {
 function applyInput(currentMs, e) {
   var n = e.kind === "add" ? currentMs + e.ms : (e.kind === "subtract" ? currentMs - e.ms : e.ms)
   return Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, n))
+}
+
+// Panel width: as wide as the widest row needs, within min … max. Wider rows
+// wrap their name instead of widening the panel.
+function fitWidth(needs, min, max) {
+  var w = min
+  for (var i = 0; i < needs.length; i++) if (needs[i] > w) w = needs[i]
+  return Math.min(max, w)
 }

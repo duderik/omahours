@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Erik Scholz",
   "license": "MIT",
-  "description": "Track time per project from the bar. Pauses on lock and suspend.",
+  "description": "A multi-project timer that only takes five characters of your bar. Pauses on lock and suspend.",
   "kinds": [
     "bar-widget"
   ],
@@ -19,7 +19,9 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "dataFile": ""
+      "dataFile": "",
+      "pauseOnLock": true,
+      "coloredBar": true
     },
     "schema": [
       {
@@ -28,6 +30,20 @@
         "label": "Data file",
         "defaultValue": "",
         "description": "JSON file with your projects. Empty uses ~/.local/share/omahours/projects.json. A synced folder works."
+      },
+      {
+        "key": "pauseOnLock",
+        "type": "boolean",
+        "label": "Pause on lock/suspend",
+        "defaultValue": true,
+        "description": "Pause the running project while the screen is locked or the machine is suspended and continue it afterwards."
+      },
+      {
+        "key": "coloredBar",
+        "type": "boolean",
+        "label": "Colored timer",
+        "defaultValue": true,
+        "description": "Green while running, dark red while paused. Off uses the bar icon color, dimmed while paused."
       }
     ]
   }

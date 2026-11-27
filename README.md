@@ -1,12 +1,19 @@
 # Omahours
 
-Time tracking per project in the Omarchy bar.
+A multi-project timer that only takes five characters of your bar: $\color{#4ade80}\texttt{4h37m}$
 
 ![Omahours panel](preview.png)
 
-The bar shows the time of the project you used last: green while it runs, dark red while it is paused, dimmed `0m` before the first project exists. Times are shown in whole minutes, `40m` below an hour and `22h2m` above.
+## Features
 
-Left click opens the project list. Right click starts or pauses the last used project. Only one project runs at a time; starting another pauses the running one.
+- The bar shows your last project's time in whole minutes: `40m`, `22h2m`.
+- Right-click starts or pauses. Left-click opens all projects.
+- One project runs at a time. Starting another pauses the current one.
+- Pauses on lock and suspend, continues when you're back.
+- Green while running, dark red while paused. Or neutral, like your other bar icons.
+- Every panel action has a key.
+- Projects live in one small JSON file. A synced folder works.
+- No account, no network: Omahours sends nothing anywhere.
 
 ## Install
 
@@ -14,7 +21,11 @@ Left click opens the project list. Right click starts or pauses the last used pr
 omarchy plugin add https://github.com/duderik/omahours --enable
 ```
 
-The widget is placed in the right section of the bar. Move it with `omarchy bar move io.github.duderik.omahours --section <section>`.
+The widget appears on the right of the bar. To move it:
+
+```sh
+omarchy bar move io.github.duderik.omahours --section <section>
+```
 
 ## Remove
 
@@ -22,61 +33,55 @@ The widget is placed in the right section of the bar. Move it with `omarchy bar 
 omarchy plugin remove io.github.duderik.omahours
 ```
 
-Your project data stays in place (see Data).
+Your projects stay (see Data).
 
 ## Panel
 
-Each row shows the project name, its time, and buttons to start or pause, edit and delete. `+ New` at the bottom adds a project.
-
-Keys while the panel is open:
+Each row: project, time, buttons to start or pause, edit, delete. `+ New` adds a project, the gear opens the settings.
 
 | Key | Action |
 |---|---|
-| `j` `k` or arrows | select a row |
+| `j` `k` or arrows | select |
 | `Enter` `Space` | start or pause |
 | `e` | edit |
 | `d` | delete |
 | `n` | new project |
-| `Esc` | cancel or close |
+| `s` | settings |
+| `Esc` | back or close |
 
-Editing turns the row into two fields, name and time. The time field accepts:
+The time field accepts:
 
 | Input | Effect |
 |---|---|
-| `2h22m`, `1h30`, `90m` | sets the time |
+| `2h22m`, `1h30`, `90m` | sets |
 | `+2h22m` | adds |
-| `-90m` | subtracts, never below zero |
+| `-90m` | subtracts, not below zero |
 | `0` | resets |
 
-A single input is limited to 99999h. Names are compared as typed, so `abc` and `ABC` are two projects. An empty or duplicate name, or an invalid time, marks the field red and saves nothing. Deleting asks for confirmation below the row.
-
-## Automatic pause
-
-A running project pauses when the screen locks. Omarchy locks before every suspend, so closing the lid pauses as well. Time counts up to the moment of locking, checked every 10 seconds.
-
-If the machine is switched off or the shell stops while a project runs, the plugin notices on the next start: it counts up to the last heartbeat, written once a minute, and pauses the project.
+Invalid input turns the field red and saves nothing: an empty or duplicate name, an unreadable time, more than 99999h. Names are case-sensitive: `abc` and `ABC` are two projects.
 
 ## Settings
 
-| Key | Default | Meaning |
-|---|---|---|
-| `dataFile` | `~/.local/share/omahours/projects.json` | where projects are stored |
+Two switches behind the gear, both on by default:
 
-Set it in the bar settings or in `~/.config/omarchy/shell.json`:
+- Pause on lock/suspend: off keeps the timer running. A project you paused yourself never restarts.
+- Colored timer: off uses the bar icon color, dimmed while paused.
+
+The data file is set in the widget's entry in `~/.config/omarchy/shell.json`:
 
 ```json
 { "id": "io.github.duderik.omahours", "dataFile": "~/Sync/omahours/projects.json" }
 ```
 
+Default: `~/.local/share/omahours/projects.json`.
+
 ## Data
 
-Projects are stored as JSON in the data file. It changes only when you start, pause, add, edit or delete a project, so a synced folder works. Two machines should not track time in the same file at the same time.
+The file changes only when you start, pause, add, edit or delete, so a synced folder works. Don't track on two machines in the same file at once.
 
-The heartbeat is kept separately in `~/.local/state/omahours/heartbeat`.
+Power loss or a shell crash while a project runs: on the next start, Omahours counts up to the last heartbeat (written every minute to `~/.local/state/omahours/heartbeat`) and pauses the project.
 
-If the data file cannot be read, for example after a broken edit or a sync conflict, the bar shows `!`, the panel names the file, and nothing is written to it until it is fixed.
-
-Nothing is sent over the network.
+An unreadable data file, after a broken edit or a sync conflict, shows `!` in the bar and the file name in the panel. Omahours won't write to it until it's fixed, so nothing in it is lost.
 
 ## Tests
 
