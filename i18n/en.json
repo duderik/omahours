@@ -1,0 +1,22 @@
+{
+  "new": "New",
+  "cancel": "Cancel",
+  "deleteNamed": "Delete %1",
+  "start": "Start",
+  "pause": "Pause",
+  "edit": "Edit",
+  "delete": "Delete",
+  "save": "Save",
+  "help": "Help",
+  "help.set.example": "2h22m",
+  "help.set": "sets the time",
+  "help.add.example": "+2h22m",
+  "help.add": "adds",
+  "help.subtract.example": "-90m",
+  "help.subtract": "subtracts",
+  "help.reset.example": "0",
+  "help.reset": "resets",
+  "help.keys": "Enter saves · Esc cancels",
+  "fileUnreadable": "Cannot read %1. Nothing is saved until the file is fixed.",
+  "fileUnreadablePanel": "Cannot read %1. It will not be overwritten. Fix or restore the file to continue."
+}

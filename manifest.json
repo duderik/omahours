@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.duderik.omahours",
+  "name": "Omahours",
+  "version": "1.0.0",
+  "author": "Erik Scholz",
+  "license": "MIT",
+  "description": "Track time per project from the bar. Pauses on lock and suspend.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Omahours",
+    "description": "Time of the last used project. Left click opens the list, right click starts or pauses.",
+    "category": "Time",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "dataFile": ""
+    },
+    "schema": [
+      {
+        "key": "dataFile",
+        "type": "path",
+        "label": "Data file",
+        "defaultValue": "",
+        "description": "JSON file with your projects. Empty uses ~/.local/share/omahours/projects.json. A synced folder works."
+      }
+    ]
+  }
+}
