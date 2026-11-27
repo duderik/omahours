@@ -1,21 +1,19 @@
 # Omahours
 
-See how long you've worked on each project, right in your Omarchy bar: $\color{#4ade80}\texttt{4h37m}$
+How long you've worked on each project, right in your Omarchy bar: $\color{#4ade80}\texttt{4h37m}$
 
-Right-click starts or pauses, left-click switches projects. Lock the screen or close the lid and it pauses by itself. Your times stay in one small file on your machine: no account, no cloud, nothing sent anywhere.
+Right-click starts or pauses, left-click switches projects. Lock the screen and the clock stops with you. Your times stay in one small file on your machine: no account, no cloud, nothing sent anywhere.
 
 ![Omahours panel](preview.png)
 
 ## Features
 
 - The bar shows your last project's time in whole minutes: `40m`, `22h2m`.
-- Right-click starts or pauses. Left-click opens all projects.
-- One project runs at a time. Starting another pauses the current one.
-- Pauses on lock and suspend, continues when you're back.
-- Green while running, dark red while paused. Or neutral, like your other bar icons.
+- One project runs at a time; starting another pauses the current one.
+- Suspend pauses it too, and it continues when you're back.
+- Green while running, dark red while paused, or plain like your other bar icons.
 - Every panel action has a key.
-- Projects live in one small JSON file. A synced folder works.
-- No account, no network: Omahours sends nothing anywhere.
+- The file is plain JSON. Keep it in your Dropbox, or any other folder you sync, and your times follow you to your other machines.
 
 ## Install
 
@@ -74,7 +72,7 @@ Two switches behind the gear, both on by default:
 The data file is set in the widget's entry in `~/.config/omarchy/shell.json`:
 
 ```json
-{ "id": "io.github.duderik.omahours", "dataFile": "~/Sync/omahours/projects.json" }
+{ "id": "io.github.duderik.omahours", "dataFile": "~/Dropbox/omahours/projects.json" }
 ```
 
 Default: `~/.local/share/omahours/projects.json`.

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Erik Scholz",
   "license": "MIT",
-  "description": "See how long you have worked on each project, right in your bar. Pauses by itself when you lock the screen. No account, nothing sent anywhere.",
+  "description": "How long you have worked on each project, right in your bar. It pauses when you lock the screen. No account, nothing sent anywhere.",
   "kinds": [
     "bar-widget"
   ],
@@ -29,7 +29,7 @@
         "type": "path",
         "label": "Data file",
         "defaultValue": "",
-        "description": "JSON file with your projects. Empty uses ~/.local/share/omahours/projects.json. A synced folder works."
+        "description": "JSON file with your projects. Empty uses ~/.local/share/omahours/projects.json. A folder in Dropbox or another sync service works."
       },
       {
         "key": "pauseOnLock",
