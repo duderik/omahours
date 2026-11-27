@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Erik Scholz",
   "license": "MIT",
-  "description": "A multi-project timer that only takes five characters of your bar. Pauses on lock and suspend.",
+  "description": "See how long you have worked on each project, right in your bar. Pauses by itself when you lock the screen. No account, nothing sent anywhere.",
   "kinds": [
     "bar-widget"
   ],

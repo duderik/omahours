@@ -1,6 +1,8 @@
 # Omahours
 
-A multi-project timer that only takes five characters of your bar: $\color{#4ade80}\texttt{4h37m}$
+See how long you've worked on each project, right in your Omarchy bar: $\color{#4ade80}\texttt{4h37m}$
+
+Right-click starts or pauses, left-click switches projects. Lock the screen or close the lid and it pauses by itself. Your times stay in one small file on your machine: no account, no cloud, nothing sent anywhere.
 
 ![Omahours panel](preview.png)
 
@@ -21,6 +23,8 @@ A multi-project timer that only takes five characters of your bar: $\color{#4ade
 omarchy plugin add https://github.com/duderik/omahours --enable
 ```
 
+Nothing else to install: Omahours only needs Omarchy.
+
 The widget appears on the right of the bar. To move it:
 
 ```sh
@@ -33,7 +37,7 @@ omarchy bar move io.github.duderik.omahours --section <section>
 omarchy plugin remove io.github.duderik.omahours
 ```
 
-Your projects stay (see Data).
+Your projects stay (see Data). Omarchy drops the widget's settings, so set a custom data file again after reinstalling.
 
 ## Panel
 
@@ -84,6 +88,8 @@ Power loss or a shell crash while a project runs: on the next start, Omahours co
 An unreadable data file, after a broken edit or a sync conflict, shows `!` in the bar and the file name in the panel. Omahours won't write to it until it's fixed, so nothing in it is lost.
 
 ## Tests
+
+The tests need Node.js.
 
 ```sh
 node tests/model.test.js
